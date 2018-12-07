@@ -31,7 +31,7 @@
             </intent-filter>
         </receiver>
 
-        <service android:name=".MonitorService">
+        <service android:name=".UploadService">
         </service>
     </application>
 

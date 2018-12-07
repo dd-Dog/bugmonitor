@@ -8,6 +8,7 @@ import android.util.Log;
 import com.flyscale.bugmonitor.global.Constants;
 import com.flyscale.bugmonitor.net.ThreadPool;
 
+import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -30,13 +31,13 @@ public class FTPUtil {
     public static void upLoadFile(String filePath) {
         try {
             FileInputStream in = new FileInputStream(new File(filePath));
-            boolean flag = uploadFile("127.0.0.1", 21, "test", "test", "D:/ftp", "test.txt", in);
+            boolean flag = uploadFile("127.0.0.1", 21, "test", "test", "D:/ftp", "test.txt", in, null, false, null);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
     }
 
-    public static void upLoadFileToServer(Context context, final String absPath, final String fileName) {
+    public static void upLoadFileToServer(Context context, final String absPath, final String fileName, final FTPClientListener listener) {
         final String hostname = PreferenceUtil.getString(context, Constants.FTP_HOSTNAME, null);
         String portStr = PreferenceUtil.getString(context, Constants.FTP_PORT, null);
         final String username = PreferenceUtil.getString(context, Constants.FTP_USERNAME, null);
@@ -59,7 +60,7 @@ public class FTPUtil {
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
-                uploadFile(hostname, port, username, password, remotePath, fileName, fis, absPath, true);
+                uploadFile(hostname, port, username, password, remotePath, fileName, fis, absPath, true, listener);
             }
         });
     }
@@ -151,18 +152,20 @@ public class FTPUtil {
     /**
      * Description: 向FTP服务器上传文件
      *
-     * @param url      FTP服务器hostname
-     * @param port     FTP服务器端口
-     * @param username FTP登录账号
-     * @param password FTP登录密码
-     * @param path     FTP服务器保存目录
-     * @param filename 上传到FTP服务器上的文件名
-     * @param input    输入流
+     * @param url       FTP服务器hostname
+     * @param port      FTP服务器端口
+     * @param username  FTP登录账号
+     * @param password  FTP登录密码
+     * @param path      FTP服务器保存目录
+     * @param filename  上传到FTP服务器上的文件名
+     * @param input     输入流
      * @param localFile 本地上传的文件
-     * @param delete 上传结束后是否删除,不管成功或者失败
+     * @param delete    上传结束后是否删除,不管成功或者失败
      * @return 成功返回true，否则返回false
      */
-    public static boolean uploadFile(String url, int port, String username, String password, String path, String filename, InputStream input,String localFile, boolean delete) {
+    public static boolean uploadFile(String url, int port, String username, String password,
+                                     String path, String filename, InputStream input, String localFile, boolean delete,
+                                     FTPClientListener listener) {
         Log.d(TAG, "uploadFile");
         boolean success = false;
         FTPClient ftp = new FTPClient();
@@ -179,27 +182,37 @@ public class FTPUtil {
             if (!FTPReply.isPositiveCompletion(reply)) {
                 ftp.disconnect();
                 Log.e(TAG, "ftp disconnect !!!");
-                if (delete){
+                if (listener != null){
+                    listener.onFailed(localFile, null, "FTP Server getReplyCode error!");
+                }
+                if (delete) {
                     delete(localFile);
                 }
                 return success;
             }
+            //被动模式,要在设置setFileType之前
             ftp.enterLocalPassiveMode();
+            ftp.setFileType(FTP.BINARY_FILE_TYPE);
             ftp.changeWorkingDirectory(path);
             Log.d(TAG, "start to upload...");
             ftp.storeFile(filename, input);
-
             input.close();
             ftp.logout();
             success = true;
             Log.d(TAG, "upload success!!!");
-            if (delete){
+            if (listener != null){
+                listener.onSuccess(localFile, filename);
+            }
+            if (delete) {
                 delete(localFile);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
+            if (listener != null){
+                listener.onFailed(localFile, e, "FTP Server getReplyCode error!");
+            }
         } finally {
-            if (delete){
+            if (delete) {
                 delete(localFile);
             }
             if (ftp.isConnected()) {
@@ -214,10 +227,17 @@ public class FTPUtil {
     }
 
     private static void delete(String localFile) {
+        Log.d(TAG, "delete,localFile=" + localFile);
         File file = new File(localFile);
-        if (file.exists()){
+        if (file.exists()) {
             file.delete();
         }
+    }
+
+    public interface FTPClientListener {
+        void onSuccess(String localFile, String remoteFile);
+
+        void onFailed(String localFile, Exception e, String msg);
     }
 
 }

@@ -1,9 +1,9 @@
 package com.flyscale.bugmonitor;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 
@@ -25,7 +25,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-
+//        startService(new Intent(this, UploadService.class));
     }
 
     @Override

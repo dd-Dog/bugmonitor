@@ -15,22 +15,23 @@ import com.flyscale.bugmonitor.util.DateFormatUtil;
 import com.flyscale.bugmonitor.util.FTPUtil;
 import com.flyscale.bugmonitor.util.SDCardUtil;
 import com.flyscale.bugmonitor.util.ZipCompressor;
+import com.flyscale.bugmonitor.util.ZipCompressorByAnt;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
-import static android.content.ContentValues.TAG;
 
 /**
  * Created by bian on 2018/12/6.
  */
 
-public class MonitorService extends IntentService {
+public class UploadService extends IntentService {
+    private static final String TAG = "UploadService";
     private TelephonyManager mTm;
 
-    public MonitorService() {
-        super("MonitorService");
+    public UploadService() {
+        super("UploadService");
     }
 
     /**
@@ -38,7 +39,7 @@ public class MonitorService extends IntentService {
      *
      * @param name Used to name the worker thread, important only for debugging.
      */
-    public MonitorService(String name) {
+    public UploadService(String name) {
         super(name);
     }
 
@@ -51,7 +52,8 @@ public class MonitorService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         //在子线程中执行
         Log.d(TAG, "onHandleIntent, thread=" + Thread.currentThread().getName());
-        comporessAndUpload();
+        sendBroadcast(new Intent(Constants.FTP_UPLOAD_START));
+        compressAndUpLoad2();
     }
 
     @Override
@@ -59,6 +61,36 @@ public class MonitorService extends IntentService {
         mTm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         return super.onStartCommand(intent, flags, startId);
     }
+
+    private void compressAndUpLoad2(){
+        Log.d(TAG, "compressAndUpLoad2");
+        try {
+            ArrayList<String> destZips = getFullName();
+            Log.d(TAG, "destZips=" + destZips);
+            ZipCompressorByAnt.compress(destZips.get(0), Constants.SRC_FILES_ABS);
+            FTPUtil.upLoadFileToServer(this, destZips.get(0), destZips.get(1), MyFTPClientListener);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private FTPUtil.FTPClientListener MyFTPClientListener = new FTPUtil.FTPClientListener() {
+        @Override
+        public void onSuccess(String localFile, String remoteFile) {
+            Log.d(TAG, "onSuccess");
+            sendBroadcast(new Intent(Constants.FTP_UPLOAD_SUCCESS_BROADCAST));
+        }
+
+        @Override
+        public void onFailed(String localFile, Exception e, String msg) {
+            Log.d(TAG, "onFailed");
+            Intent intent = new Intent(Constants.FTP_UPLOAD_FAILED_BRAOADCAST);
+            intent.putExtra("error", e.getMessage());
+            intent.putExtra("msg", msg);
+            sendBroadcast(intent);
+        }
+    };
 
     private void comporessAndUpload() {
         File filesDir = getFilesDir();
@@ -106,11 +138,15 @@ public class MonitorService extends IntentService {
             boolean delete = file.delete();
             Log.d(TAG, "delete zip file " + file.getAbsolutePath() + (delete ? " success" : "failed"));
         }
-        FTPUtil.upLoadFileToServer(this, destZips.get(0), destZips.get(1));
+        FTPUtil.upLoadFileToServer(this, destZips.get(0), destZips.get(1), null);
         //上传完成后删除压缩文件
 
     }
 
+    /**
+     * 获取压缩文件名
+     * @return 0全路径名 1文件名
+     */
     private ArrayList<String> getFullName() {
         ArrayList<String> strings = new ArrayList<String>();
         String time1 = DateFormatUtil.getTime3();

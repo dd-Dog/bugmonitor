@@ -16,5 +16,10 @@ public class Constants {
     public static final String FTP_DOWNLOAD_FILE_NAME = "filename";
     public static final String SRC_BASE = "/data";
     public static final String[] SRC_FILES = {"/slog", "/modem_log"};
+    public static final String[] SRC_FILES_ABS = {"/data/slog", "/data/modem_log"};
 
+    public static final String FTP_UPLOAD_SUCCESS_BROADCAST = "com.flyscale.bugmonitor.FTP_UPLOAD_SUCCESS";
+    public static final String FTP_UPLOAD_FAILED_BRAOADCAST = "com.flyscale.bugmonitor.FTP_UPLOAD_FAILED";
+    public static final String FTP_UPLOAD_SERVICE_RUNNING = "com.flyscale.bugmonitor.UPLOAD_SERVICE_RUNNING";
+    public static final String FTP_UPLOAD_START = "com.flyscale.bugmonitor.FTP_UPLOAD_START";
 }
